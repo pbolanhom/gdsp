@@ -1,114 +1,24 @@
-#Required scripts and packages
-source("GrindR.R") 
-library(igraph)
+
+
+#The grind.R script
+#In this analysis, we use the grind.R script developed by Rob J de Boer at the Utrecht University (https://tbb.bio.uu.nl/rdb/grindR.html).
+#The grind.R script has a repertoire of functions to the analysis of models composed by ordinary differential equations (ODE's).
+#The grind.R script can be found at https://tbb.bio.uu.nl/rdb/grindR/
+#After the script is saved on the folder containing the workspace of the R code, the grind.R script can be loaded with the code:
+##Packages "deSolve", "rootSolve" and "FME" are automatic loaded (as long as installed) when sourcing the grind.R script.
+#install.packages(deSolve)
+#install.packages(rootSolve)
+#install.packages(FME)
+source("grind.R") #where the name "grind" varies according with the name saved by the user. 
+
+#Packages
+#install.packages(igraph)
+#install.packages(ade4)
+library(igraph) #For building the network
 library(ade4) #for the triagle plot
 
-## Model with reservoir densities i
-model = function(t, state, parms){
-  with(as.list(c(state,parms)),{
-    Sr=state[[1]]
-    Irp=state[2:(n+1)]
-    Si=state[[(n+2)]]
-    Ii=state[[(n+3)]]
-    #reservoir host
-    Nr=Sr+sum(Irp)
-    dSr=br*Nr+sum(gammarp*Irp)-Sr*(dr+lr*Nr+sum(betarp*Irp))
-    dIrp=Irp*(betarp*Sr-(dr+lr*Nr+alpharp+gammarp)+(A-t(A)*g)%*%Irp)
-    #alternative host
-    Ni=Si+Ii
-    dSi=bi*Ni+gammai*Ii-Si*(di+li*Ni+betai*Ii)-beta.ri[[1]]*Irp[[1]]*Si
-    dIi=Ii*(betai*Si-(di+li*Ni+alphai+gammai))+beta.ri[[1]]*Irp[[1]]*Si
-    return(list(c(dSr,dIrp,dSi,dIi)))    
-  }) 
-} 
 
-
-########Strain richness in reservoir population
-n=3 
-
-########Parameters of reservoir host
-br=1.5
-dr=0.5
-lr=0.25
-alpharp=rep(0.5,n)
-betarp=rep(1,n)
-gammarp=rep(0.5,n)
-epsilon=c(0.8,rep(0.8,(n-1)))
-theta=epsilon*betarp
-g=1 #superinfection mode
-
-
-########Parameters of incidental host
-bi=2
-di=0.2
-li=0.25
-alphai=1
-betai=0.1
-gammai=0.05
-
-##############Cross-transmission
-zetai=c(1,rep(((1-1)/(n-1)),(n-1)))
-iotarp=betarp
-c.ri=0.1
-beta.ri=zetai*iotarp*c.ri
-
-##############The Superinfection network
-net=make_empty_graph(n) #Generating an empt graph
-net=net%>%add_edges(as.vector(rbind(seq(1,n,1),c(seq(2,n,1),1)))) #Incorporating the cyclic dominance
-V(net)$Sp=seq(1,n,1) #Indexing the nodes with strain id
-E(net)$weight=theta #Defining the values of links as theta values
-
-#plotting the cross-contact network
-plot(net, vertex.size=20, vertex.label=V(net)$Sp,edge.color="black",   
-     vertex.label.font=1,vertex.label.cex=1,vertex.label.degree=pi/2,margin=.5,
-     edge.arrow.size=.7,vertex.label.dist=0,edge.width=E(net)$weight,edge.label=E(net)$weight,
-     vertex.color="azure4",
-     vertex.label.color="black",layout=layout_with_fr(net),edge.arrow.width=1.5)
-
-A=as.matrix(as_adjacency_matrix(net, attr="weight")) 
-
-#Payoff matrix
-PAYOFF=(A-g*t(A))
-det(PAYOFF)
-
-############## Initial conditions
-Sr=c(0.5)
-
-Ir=c(0.5)
-x=0.95#1/n
-f=c(x,rep(((1-x)/(n-1)),(n-1)))
-Irp=rep(Ir,n)*f
-
-Si=c(1)
-Ii=c(0) 
-
-s=c(Sr,Irp,Si,Ii)
-p=c()
-
-#Colors
-#colfunc.red<-colorRampPalette(c("red","firebrick"))
-colors=c("deepskyblue4",colfunc.red(n),"deepskyblue4","firebrick")
-#solutions
-OUT=run(tmax=500,legend = F,table=TRUE,timeplot = T, tstep=0.1)
-Time.seq=OUT[,1]
-Sr.t=OUT[,2] 
-Irp.t=OUT[,c(3:(n+2))] 
-Si.t=OUT[,(n+3)] 
-Ii.t=OUT[,(n+4)] 
-
-Ir.t=rowSums(Irp.t)
-f.t=Irp.t/Ir.t
-
-#Plots
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=cbind(Sr.t,Irp.t,Si.t,Ii.t)
-        ,type = "l",lwd=c(1,rep(1,n),2,2),lty=c(2,rep(2,n),1,1),col=colors,
-        xlab="Time",ylab="Densities",frame=T)
-
-
-##############################################################################################################
-
-#Model for strain frquenecy
+#The Model
 model = function(t, state, parms){
   with(as.list(c(state,parms)),{
     Sr=state[[1]]
@@ -129,339 +39,188 @@ model = function(t, state, parms){
     return(list(c(dSr,dIr,dSi,dIi,df)))    
   }) 
 }
-
-#Initial conditions
-x=0.95#1/n
-f=c(x,rep(((1-x)/(n-1)),(n-1)))
-s=c(Sr,Ir,Si,Ii,f)
-p=c()
-#Colors
-colfunc.gray=colorRampPalette(c("black","gray56"))
-colors=c("deepskyblue4","firebrick","deepskyblue4","firebrick",colfunc.gray(n))
-#Solutions
-OUT=run(tmax=500,legend = F,table=TRUE,timeplot = T, tstep=0.01)
-Time.seq=OUT[,1]
-Sr.t=OUT[,2] 
-Ir.t=OUT[,3] 
-Si.t=OUT[,4] 
-Ii.t=OUT[,5] 
-f.t=OUT[,c(6:(n+5))]
-
-
-
-#Plots
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=cbind(Sr.t,Ir.t,Si.t,Ii.t)
-        ,type = "l",lwd=c(1,1,2,2),lty=c(2,2,1,1),col=colors,
-        xlab="Time",ylab="Densities",frame=T)
-
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=f.t,type = "l",lwd=3,lty=c(1),col=colfunc.gray(n),
-        xlab="Time",ylab="Frequencies",frame=T,ylim=c(0,1))
-
-#Triangle plot
-names(f.t)=c("Strain 1", "Strain 2", "Strain 3")
-par(mar=c(1,1,1,1)+0.1,mgp=c(0,0,0),cex=1.2,xpd=F,las=1)
-tri=triangle.plot(f.t[,c(1,2,3)],show.position=F,cpoint = 0.1,clabel=0,scale=F)
-points(tri, col = "green", cex=1,pch=".")
-
-
-###########################################################################################
-#OFICIAL FIGURES
-
-##############################PANEL 1
-
-#For g>1
-g=1.4
-x=0.95#1/n
-f=c(x,rep(((1-x)/(n-1)),(n-1)))
-s=c(Sr,Ir,Si,Ii,f)
-OUT=run(tmax=200,legend = F,table=TRUE,timeplot = T, tstep=0.01)
-Time.seq=OUT[,1]
-Sr.t=OUT[,2] 
-Ir.t=OUT[,3] 
-Si.t=OUT[,4] 
-Ii.t=OUT[,5] 
-f.t=OUT[,c(6:(n+5))]
-
-
-#Triangle plot
-par(mar=c(1,1,1,1)+0.1,mgp=c(0,0,0),cex=1.2,xpd=F,las=1)
-names(f.t)=c("Strain 1", "Strain 2", "Strain 3")
-tri=triangle.plot(f.t[,c(1,2,3)],show.position=F,cpoint = 0.1,clabel=0,scale=F)
-points(tri, col = "green", cex=1,pch=".")
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=f.t,type = "l",lwd=3,lty=c(1),col=colfunc.gray(n),
-        xlab="Time",ylab="Frequencies",frame=T,ylim=c(0,1))
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=cbind(Sr.t,Ir.t,Si.t,Ii.t)
-        ,type = "l",lwd=c(3,3,5,5),lty=c(1,1,1,1),col=colors,
-        xlab="Time",ylab="Densities",frame=T)
-
-
-
-#For g=1
-g=1
-x=0.95#1/n
-f=c(x,rep(((1-x)/(n-1)),(n-1)))
-s=c(Sr,Ir,Si,Ii,f)
-OUT=run(tmax=200,legend = F,table=TRUE,timeplot = T, tstep=0.01)
-Time.seq=OUT[,1]
-Sr.t=OUT[,2] 
-Ir.t=OUT[,3] 
-Si.t=OUT[,4] 
-Ii.t=OUT[,5] 
-f.t=OUT[,c(6:(n+5))]
-
-#Triangle plot
-par(mar=c(1,1,1,1)+0.1,mgp=c(0,0,0),cex=1.2,xpd=F,las=1)
-names(f.t)=c("Strain 1", "Strain 2", "Strain 3")
-tri=triangle.plot(f.t[,c(1,2,3)],show.position=F,cpoint = 0.1,clabel=0,scale=F)
-points(tri, col = "green", cex=1,pch=".")
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=f.t,type = "l",lwd=3,lty=c(1),col=colfunc.gray(n),
-        xlab="Time",ylab="Frequencies",frame=T,ylim=c(0,1))
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=cbind(Sr.t,Ir.t,Si.t,Ii.t)
-        ,type = "l",lwd=c(1,1,2,2),lty=c(2,2,1,1),col=colors,
-        xlab="Time",ylab="Densities",frame=T)
-
-
-
-#For g<1
-g=0.6
-x=0.95#1/n
-f=c(x,rep(((1-x)/(n-1)),(n-1)))
-s=c(Sr,Ir,Si,Ii,f)
-OUT=run(tmax=200,legend = F,table=TRUE,timeplot = T, tstep=0.01)
-Time.seq=OUT[,1]
-Sr.t=OUT[,2] 
-Ir.t=OUT[,3] 
-Si.t=OUT[,4] 
-Ii.t=OUT[,5] 
-f.t=OUT[,c(6:(n+5))]
-
-#Triangle plot
-par(mar=c(1,1,1,1)+0.1,mgp=c(0,0,0),cex=1.2,xpd=F,las=1)
-names(f.t)=c("Strain 1", "Strain 2", "Strain 3")
-tri=triangle.plot(f.t[,c(1,2,3)],show.position=F,cpoint = 0.1,clabel=0,scale=F)
-points(tri, col = "green", cex=1,pch=".")
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=f.t,type = "l",lwd=3,lty=c(1),col=colfunc.gray(n),
-        xlab="Time",ylab="Frequencies",frame=T,ylim=c(0,1))
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=cbind(Sr.t,Ir.t,Si.t,Ii.t)
-        ,type = "l",lwd=c(1,1,2,2),lty=c(2,2,1,1),col=colors,
-        xlab="Time",ylab="Densities",frame=T)
-
-
-
-#########################PANEL 1 (SM) RPS GAME WITH VARIABILITY IN EPIDEMIOLOGICAL PARAMETERS
-alpharp=seq(0.5,0.25,length=n)#rep(0.5,n)
-betarp=seq(1,0.85,length=n)#rep(1,n)
-gammarp=rep(0.5,n)
-
-
-#For g>1
-g=1.4
-x=0.95#1/n
-f=c(x,rep(((1-x)/(n-1)),(n-1)))
-s=c(Sr,Ir,Si,Ii,f)
-OUT=run(tmax=2000,legend = F,table=TRUE,timeplot = T, tstep=0.01)
-Time.seq=OUT[,1]
-Sr.t=OUT[,2] 
-Ir.t=OUT[,3] 
-Si.t=OUT[,4] 
-Ii.t=OUT[,5] 
-f.t=OUT[,c(6:(n+5))]
-
-
-#Triangle plot
-par(mar=c(1,1,1,1)+0.1,mgp=c(0,0,0),cex=1.2,xpd=F,las=1)
-names(f.t)=c("Strain 1", "Strain 2", "Strain 3")
-tri=triangle.plot(f.t[,c(1,2,3)],show.position=F,cpoint = 0.1,clabel=0,scale=F)
-points(tri, col = "green", cex=1,pch=".")
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=f.t,type = "l",lwd=3,lty=c(1),col=colfunc.gray(n),
-        xlab="Time",ylab="Frequencies",frame=T,ylim=c(0,1))
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=cbind(Sr.t,Ir.t,Si.t,Ii.t)
-        ,type = "l",lwd=c(1,1,2,2),lty=c(2,2,1,1),col=colors,
-        xlab="Time",ylab="Densities",frame=T)
-
-
-
-#For g=1
-g=1
-x=0.95#1/n
-f=c(x,rep(((1-x)/(n-1)),(n-1)))
-s=c(Sr,Ir,Si,Ii,f)
-OUT=run(tmax=2000,legend = F,table=TRUE,timeplot = T, tstep=0.01)
-Time.seq=OUT[,1]
-Sr.t=OUT[,2] 
-Ir.t=OUT[,3] 
-Si.t=OUT[,4] 
-Ii.t=OUT[,5] 
-f.t=OUT[,c(6:(n+5))]
-
-
-#Triangle plot
-par(mar=c(1,1,1,1)+0.1,mgp=c(0,0,0),cex=1.2,xpd=F,las=1)
-names(f.t)=c("Strain 1", "Strain 2", "Strain 3")
-tri=triangle.plot(f.t[,c(1,2,3)],show.position=F,cpoint = 0.1,clabel=0,scale=F)
-points(tri, col = "green", cex=1,pch=".")
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=f.t,type = "l",lwd=3,lty=c(1),col=colfunc.gray(n),
-        xlab="Time",ylab="Frequencies",frame=T,ylim=c(0,1))
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=cbind(Sr.t,Ir.t,Si.t,Ii.t)
-        ,type = "l",lwd=c(1,1,2,2),lty=c(2,2,1,1),col=colors,
-        xlab="Time",ylab="Densities",frame=T)
-
-
-#For g>1
-g=0.6
-x=0.95#1/n
-f=c(x,rep(((1-x)/(n-1)),(n-1)))
-s=c(Sr,Ir,Si,Ii,f)
-OUT=run(tmax=2000,legend = F,table=TRUE,timeplot = T, tstep=0.01)
-Time.seq=OUT[,1]
-Sr.t=OUT[,2] 
-Ir.t=OUT[,3] 
-Si.t=OUT[,4] 
-Ii.t=OUT[,5] 
-f.t=OUT[,c(6:(n+5))]
-
-
-#Triangle plot
-par(mar=c(1,1,1,1)+0.1,mgp=c(0,0,0),cex=1.2,xpd=F,las=1)
-names(f.t)=c("Strain 1", "Strain 2", "Strain 3")
-tri=triangle.plot(f.t[,c(1,2,3)],show.position=F,cpoint = 0.1,clabel=0,scale=F)
-points(tri, col = "green", cex=1,pch=".")
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=f.t,type = "l",lwd=3,lty=c(1),col=colfunc.gray(n),
-        xlab="Time",ylab="Frequencies",frame=T,ylim=c(0,1))
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=cbind(Sr.t,Ir.t,Si.t,Ii.t)
-        ,type = "l",lwd=c(1,1,2,2),lty=c(2,2,1,1),col=colors,
-        xlab="Time",ylab="Densities",frame=T)
-
-
-
-##############################PANEL 2 (SM) GAME DYNAMICS WITH MORE THAN THREE STRATEGIES
-n=10
-
+#Parameters
+########Strain richness in reservoir population
+n=3 
 ########Parameters of reservoir host
-br=1.5
-dr=0.5
-lr=0.25
-alpharp=rep(0.5,n)
-betarp=rep(1,n)
-gammarp=rep(0.5,n)
-epsilon=c(0.8,rep(0.8,(n-1)))
-theta=epsilon*betarp
-#g=1.5 #superinfection mode
+br=1.5 #born rate
+dr=0.2 #death rate
+lr=0.25 #density-dependent death rate
+alpharp=rep(0.5,n) #virulences
+betarp=rep(1,n) #transmission rates
+gammarp=rep(0.5,n) #recovery rates
+epsilon=c(0.8,rep(0.8,(n-1))) #rate of superinfection in relation to primary infections
+theta=epsilon*betarp #rate at which one strain superinfects another
+g=1 #the phenomenological class-transfer coefficient
 
 
 ########Parameters of incidental host
-bi=2
-di=0.2
-li=0.25
-alphai=1
-betai=0.1
-gammai=0.05
+bi=2 #born rate
+di=0.2 #death rate
+li=0.25 #density-dependent death rate
+alphai=1 #virulence
+betai=0.1 #transmission rate
+gammai=0.05 #recovery rate
 
-##############Cross-transmission
-zetai=c(1,rep(((1-1)/(n-1)),(n-1)))
-iotarp=betarp
-c.ri=0.1
-beta.ri=zetai*iotarp*c.ri
+##############Cross-transmission (only from the reservoir to incidental host)
+zetai=c(1,0,0) 
+beta.ri=zetai*betarp*0.1
 
-##############The Superinfection network
+#The superinfection network
 net=make_empty_graph(n) #Generating an empt graph
 net=net%>%add_edges(as.vector(rbind(seq(1,n,1),c(seq(2,n,1),1)))) #Incorporating the cyclic dominance
 V(net)$Sp=seq(1,n,1) #Indexing the nodes with strain id
 E(net)$weight=theta #Defining the values of links as theta values
 
-#plotting the cross-contact network
+#plotting superinfection network
 plot(net, vertex.size=20, vertex.label=V(net)$Sp,edge.color="black",   
      vertex.label.font=1,vertex.label.cex=1,vertex.label.degree=pi/2,margin=.5,
      edge.arrow.size=.7,vertex.label.dist=0,edge.width=E(net)$weight,edge.label=E(net)$weight,
      vertex.color="azure4",
      vertex.label.color="black",layout=layout_with_fr(net),edge.arrow.width=1.5)
+A=as.matrix(as_adjacency_matrix(net, attr="weight")) #calculating its adjacency matrix
 
-A=as.matrix(as_adjacency_matrix(net, attr="weight"))
+#Initial Conditions
+x=0.9#1/n #the initial frequency of strain 1
+f=c(x,rep(((1-x)/(n-1)),(n-1))) #the initial frequency of the n strains based on the abose x
+Sr=c(0.5) #reservoir susceptible class density
+Ir=c(0.5) #reservoir overall infected class density
+Si=c(1) #incidental host susceptible class density
+Ii=c(0) #incidental host infected class density
+s=c(Sr,Ir,Si,Ii,f) 
+p=c()
 
-
-#For g>1
-g=1.4
-x=0.95#1/n
-f=c(x,rep(((1-x)/(n-1)),(n-1)))
-s=c(Sr,Ir,Si,Ii,f)
-OUT=run(tmax=200,legend = F,table=TRUE,timeplot = T, tstep=0.01)
-Time.seq=OUT[,1]
+#Solving the system
+OUT=run(tmax=500,legend = F,table=TRUE,timeplot = F, tstep=0.01)
+###Vectors with the solutions
+Time.seq=OUT[,1] 
 Sr.t=OUT[,2] 
 Ir.t=OUT[,3] 
 Si.t=OUT[,4] 
 Ii.t=OUT[,5] 
 f.t=OUT[,c(6:(n+5))]
-
-
-
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=f.t,type = "l",lwd=3,lty=c(1),col=colfunc.gray(n),
-        xlab="Time",ylab="Frequencies",frame=T,ylim=c(0,1))
+##Temporal dynamics
+cols=c("deepskyblue4","firebrick","deepskyblue4","firebrick")
+#####Infected and Susceptible classes
 par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
 matplot(x=Time.seq,y=cbind(Sr.t,Ir.t,Si.t,Ii.t)
         ,type = "l",lwd=c(1,1,2,2),lty=c(2,2,1,1),col=colors,
         xlab="Time",ylab="Densities",frame=T)
 
-
-#For g=1
-g=1
-x=0.95#1/n
-f=c(x,rep(((1-x)/(n-1)),(n-1)))
-s=c(Sr,Ir,Si,Ii,f)
-OUT=run(tmax=200,legend = F,table=TRUE,timeplot = T, tstep=0.01)
-Time.seq=OUT[,1]
-Sr.t=OUT[,2] 
-Ir.t=OUT[,3] 
-Si.t=OUT[,4] 
-Ii.t=OUT[,5] 
-f.t=OUT[,c(6:(n+5))]
-
-
-
+#####Only infected classes
 par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=f.t,type = "l",lwd=3,lty=c(1),col=colfunc.gray(n),
+matplot(x=Time.seq,y=cbind(Ir.t,Ii.t)
+        ,type = "l",lwd=c(4,4),lty=c(3,1),col=c("firebrick","firebrick"),
+        xlab="Time",ylab="Densities",frame=T,ylim=c(0,2.5))
+
+#####Strain frequency composition within reservoir population
+par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
+matplot(x=Time.seq,y=f.t,type = "l",lwd=3,lty=c(1),col=c("darkorchid4","seagreen4","peru"),
         xlab="Time",ylab="Frequencies",frame=T,ylim=c(0,1))
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=cbind(Sr.t,Ir.t,Si.t,Ii.t)
-        ,type = "l",lwd=c(1,1,2,2),lty=c(2,2,1,1),col=colors,
-        xlab="Time",ylab="Densities",frame=T)
+
+##Triangule plot
+names(f.t)=c("Strain 1", "Strain 2", "Strain 3")
+par(mar=c(1,1,1,1)+0.1,mgp=c(0,0,0),cex=1.2,xpd=F,las=1)
+tri=triangle.plot(f.t[,c(1,2,3)],show.position=F,cpoint = 0.1,clabel=0,scale=F)
+points(tri, col = "black", cex=1,pch=".")
 
 
-#For g<1
-g=0.6
-x=0.95#1/n
-f=c(x,rep(((1-x)/(n-1)),(n-1)))
-s=c(Sr,Ir,Si,Ii,f)
-OUT=run(tmax=500,legend = F,table=TRUE,timeplot = T, tstep=0.01)
-Time.seq=OUT[,1]
-Sr.t=OUT[,2] 
-Ir.t=OUT[,3] 
-Si.t=OUT[,4] 
-Ii.t=OUT[,5] 
-f.t=OUT[,c(6:(n+5))]
+##Asymptotic stability
+P=(A-g*t(A)) #the payoff matrix
+det(PAYOFF) #determinant of P
+((epsilon*mean(betarp))^3)*(1-g^3) #the derived determinant
+
+##The interior equilibrium of Ii
+B=di+alphai+gammai-Si.t[3000]*(betai-li)
+A=li
+C=-Si.t[3000]*(beta.ri[1]*Irp.t[3000,2])
+DELTA=B^2-4*A*C
+Ieq_plus=(-B+sqrt(DELTA))/(2*A)
+Ieq_minus=(-B-sqrt(DELTA))/(2*A)
+Ii.t[3000]
 
 
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=f.t,type = "l",lwd=3,lty=c(1),col=colfunc.gray(n),
-        xlab="Time",ylab="Frequencies",frame=T,ylim=c(0,1))
-par(mar=c(5,5,2,1)+0,mgp=c(3,1,0),cex=2,xpd=F,las=1)
-matplot(x=Time.seq,y=cbind(Sr.t,Ir.t,Si.t,Ii.t)
-        ,type = "l",lwd=c(1,1,2,2),lty=c(2,2,1,1),col=colors,
-        xlab="Time",ylab="Densities",frame=T)
+#####The appendix figure
+##Building a model only with the incidental host
+model = function(t, state, parms){
+  with(as.list(c(state,parms)),{
+    dSa=ba*(Sa+Ia)+gammaa*Ia-Sa*(da+la*(Sa+Ia)+betaa*Ia)-beta.ra*I*f1*Sa
+    dIa=Ia*(betaa*Sa-(da+la*(Sa+Ia)+alphaa+gammaa))+beta.ra*I*f1*Sa
+    return(list(c(dSa,dIa)))    
+  }) 
+} 
+
+
+db=data.frame("ba"=2,"da"=0.2,"la"=0.25,"alphaa"=1,"gammaa"=0.05,"c.ra"=0.1,"beta.ra"=0.1,"I"=1)
+data=db
+ba=data$ba
+da=data$da
+la=data$la
+alphaa=data$alphaa
+gammaa=data$gammaa
+c.ra=data$c.ra
+beta.ra=data$beta.ra
+I=data$I
+
+df=NULL
+betaai=seq(0.1,1,0.1)
+f1i=seq(0,1,0.05)
+for (j in 1:length(f1i)) {
+  for (i in 1:length(betaai)) {
+    f1=f1i[j]
+    p=c()
+    betaa=betaai[i]
+    s=c(Sa=1,Ia=0)
+    OUT=run(tmax=800,legend = F,table=TRUE,timeplot = F, tstep=0.1)
+    
+    Sa.temp=OUT[,2]
+    Saeq=Sa.temp[7000]
+    Ia.temp=OUT[,3]
+    Iaeq=Ia.temp[7000]
+    
+    df0=data.frame(f1,betaa,Saeq,Iaeq)
+    #df=NULL
+    df=rbind(df,df0)
+    
+  }
+}
+df  
+#df.original=df
+df00=df
+#df00=as.matrix(df)
+df00=as.data.frame(df.original)
+#df00=as.numeric(df00)
+#as.numeric(df)
+#df00$betaa%>%filter(betaa==0.3)
+#is.numeric(df[2,]$betaa)
+
+
+df01=df00%>%filter(betaa==0.1)
+df02=df00%>%filter(betaa==0.2)
+df03=df00%>%filter(betaa==(0.2+0.1))
+df04=df00%>%filter(betaa==0.4)
+df05=df00%>%filter(betaa==0.5)
+df06=df00%>%filter(betaa==0.6)
+df07=df00%>%filter(betaa==(0.8-0.1))
+df08=df00%>%filter(betaa==0.8)
+df09=df00%>%filter(betaa==0.9)
+df10=df00%>%filter(betaa==1)
+
+par(mar=c(5,5,1,1),mgp=c(3,1,0),cex=1.2,xpd=F,las=1)
+colls=colorRampPalette(c("darkred","indianred1"))
+collls=colls(10)
+#collls[1]
+plot(df01$f1,df01$Iaeq,ylim=c(0,3),type="l",lwd=2,
+     ylab=expression(italic(I[i])),xlab=expression(italic(f["r,1"])),col=collls[10],las=1)
+lines(df02$f1,df02$Iaeq,col=collls[9],type="l",lwd=2)
+lines(df03$f1,df03$Iaeq,col=collls[8],type="l",lwd=2)
+lines(df04$f1,df04$Iaeq,col=collls[7],type="l",lwd=2)
+lines(df05$f1,df05$Iaeq,col=collls[6],type="l",lwd=2)
+lines(df06$f1,df06$Iaeq,col=collls[5],type="l",lwd=2)
+lines(df07$f1,df07$Iaeq,col=collls[4],type="l",lwd=2)
+lines(df08$f1,df08$Iaeq,col=collls[3],type="l",lwd=2)
+lines(df09$f1,df09$Iaeq,col=collls[2],type="l",lwd=2)
+lines(df10$f1,df10$Iaeq,col=collls[1],type="l",lwd=2)
 
 
 
